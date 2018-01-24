@@ -24,7 +24,7 @@ std::string folderName;
 std::string objectName;
 std::string fileName;
 std::string fileNameProcessed;
-std::string saveData;
+int saveData = 0;
 cv::Mat res;	// added: processing background
 
 void imageCallback(const sensor_msgs::ImageConstPtr& msg)
@@ -48,7 +48,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 
 	isThereImage = true;
 
-	if( strcmp("Y", saveData) )
+	if( saveData == 1 )
 	{
 		imageCounter++;
 		fileName.clear();
@@ -75,7 +75,7 @@ int main(int argc, char **argv)
   std::cin >> folderName;
   std::cout << "Object name: ";
   std::cin >> objectName;
-  std::count << "Save data [Y/N]?: ";
+  std::cout << "Save data [Y=1/N=0]?: ";
   std:cin >> saveData;
 
   cv::namedWindow("view");
@@ -83,7 +83,6 @@ int main(int argc, char **argv)
   image_transport::ImageTransport it(nh);
   image_transport::Subscriber sub = it.subscribe("/bebop/image_raw", 1, imageCallback);
   
-  image_transport::ImageTransport it(nh);
   image_transport::Publisher pub = it.advertise("/image_processed", 1);	// maybe this needs to be global
   sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", res).toImageMsg();
 
