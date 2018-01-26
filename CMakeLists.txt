@@ -1,6 +1,6 @@
 # %Tag(FULLTEXT)%
 cmake_minimum_required(VERSION 2.8.3)
-project(collect_image_data)
+project(uavControl)
 
 ## Find catkin and any catkin packages
 find_package(catkin REQUIRED COMPONENTS roscpp rospy std_msgs genmsg image_transport cv_bridge)
@@ -19,8 +19,8 @@ catkin_package()
 ## Build talker and listener
 include_directories(include ${catkin_INCLUDE_DIRS})
 
-add_executable(collect_image_data src/collect_image_data.cpp)
-target_link_libraries(collect_image_data ${catkin_LIBRARIES} ${OpenCV_LIBS})
-add_dependencies(collect_image_data collect_image_data_generate_messages_cpp)
+add_executable(uavControl src/uavControl.cpp)
+target_link_libraries(uavControl ${catkin_LIBRARIES} ${OpenCV_LIBS})
+add_dependencies(uavControl uavControl_generate_messages_cpp)
 
 # %EndTag(FULLTEXT)%
