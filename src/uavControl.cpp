@@ -5,6 +5,11 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/core/utility.hpp>
+#include <opencv2/saliency.hpp>
+#include <opencv2/highgui.hpp>
+#include <iostream>
+#include <string>
 #include <cv_bridge/cv_bridge.h>
 #include <string>
 #include <sstream>
@@ -16,7 +21,7 @@
 
 using namespace std;
 using namespace cv;
-
+using namespace saliency;
 
 int imageCounter = 0;
 bool cameraType = false;
@@ -25,6 +30,7 @@ std::string objectName;
 std::string fileName;
 int saveData = 0;
 cv::Mat frame;
+cv::Mat frameSaliency;
 
 void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 {
@@ -66,12 +72,34 @@ void imageCallback(cv::VideoCapture cap)
 	cv::Mat hsv_image;	// added: processing background
 	cv::Mat mask;	// added: processing background
 
+
+	Ptr<Saliency> saliencyAlgorithm;
+
+  	Mat binaryMap;
+  	Mat image;
+
 	cap >> frame;
 
 	cv::cvtColor(frame, hsv_image, COLOR_BGR2HSV);	// added: processing background
 	cv::inRange(hsv_image, Scalar(0, 70, 50), Scalar(10, 255, 255), mask);	// added: processing background
 	bitwise_and(frame, frame, res, mask);	// added: processing background
 	frame = res;
+
+  	frame.copyTo( image );
+
+	String saliency_algorithm = "FINE_GRAINED";
+
+	if( saliency_algorithm.find( "FINE_GRAINED" ) == 0 )
+	{
+		Mat saliencyMap;
+		saliencyAlgorithm = StaticSaliencyFineGrained::create();
+		if( saliencyAlgorithm->computeSaliency( image, saliencyMap ) )
+		{
+			imshow( "Saliency Map", saliencyMap );
+			imshow( "Original Image", image );
+			waitKey( 50 );
+		}
+	}
 
 	cv::imshow("view", frame);
 	cv::waitKey(30);
