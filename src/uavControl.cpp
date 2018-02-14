@@ -29,7 +29,8 @@ std::string folderName;
 std::string objectName;
 std::string fileName;
 int saveData = 0;
-cv::Mat frame;
+cv::Mat frameBebop;
+cv::Mat frameWebcam;
 cv::Mat frameSaliency;
 
 void imageCallbackBebop(const sensor_msgs::ImageConstPtr& msg)
@@ -45,14 +46,14 @@ void imageCallbackBebop(const sensor_msgs::ImageConstPtr& msg)
 		Mat binaryMap;
 		Mat image;
 
-		frame = cv_bridge::toCvShare(msg, "bgr8")->image;
+		frameBebop = cv_bridge::toCvShare(msg, "bgr8")->image;
 
-		cv::cvtColor(frame, hsv_image, COLOR_BGR2HSV);	// added: processing background
+		cv::cvtColor(frameBebop, hsv_image, COLOR_BGR2HSV);	// added: processing background
 		cv::inRange(hsv_image, Scalar(0, 70, 50), Scalar(10, 255, 255), mask);	// added: processing background
-		bitwise_and(frame, frame, res, mask);	// added: processing background
-		frame = res;
+		bitwise_and(frameBebop, frameBebop, res, mask);	// added: processing background
+		frameBebop = res;
 
-		frame.copyTo( image );
+		frameBebop.copyTo( image );
 
 		String saliency_algorithm = "SPECTRAL_RESIDUAL";
 
@@ -62,13 +63,13 @@ void imageCallbackBebop(const sensor_msgs::ImageConstPtr& msg)
 			saliencyAlgorithm = StaticSaliencyFineGrained::create();
 			if( saliencyAlgorithm->computeSaliency( image, saliencyMap ) )
 			{
-				imshow( "Saliency Map", saliencyMap );
-				imshow( "Original Image", image );
+				imshow( "Bebop - Saliency Map", saliencyMap );
+				imshow( "Bebop - Original Image", image );
 				waitKey( 50 );
 			}
 		}
 
-		cv::imshow("view", frame);
+		cv::imshow("Bebop - view", frameBebop);
 		cv::waitKey(30);
 
 
@@ -79,7 +80,7 @@ void imageCallbackBebop(const sensor_msgs::ImageConstPtr& msg)
 			std::stringstream strCounter;
 			strCounter << imageCounter;
 			fileName = folderName + "/" + objectName + "_" + strCounter.str() + ".jpg";
-			cv::imwrite(fileName, frame);
+			cv::imwrite(fileName, frameBebop);
 		}
 	}
 	catch (cv_bridge::Exception& e)
@@ -100,14 +101,14 @@ void imageCallbackWebcam(cv::VideoCapture cap)
   	Mat binaryMap;
   	Mat image;
 
-	cap >> frame;
+	cap >> frameWebcam;
 
-	cv::cvtColor(frame, hsv_image, COLOR_BGR2HSV);	// added: processing background
+	cv::cvtColor(frameWebcam, hsv_image, COLOR_BGR2HSV);	// added: processing background
 	cv::inRange(hsv_image, Scalar(0, 70, 50), Scalar(10, 255, 255), mask);	// added: processing background
-	bitwise_and(frame, frame, res, mask);	// added: processing background
-	frame = res;
+	bitwise_and(frameWebcam, frameWebcam, res, mask);	// added: processing background
+	frameWebcam = res;
 
-  	frame.copyTo( image );
+  	frameWebcam.copyTo( image );
 
 	String saliency_algorithm = "FINE_GRAINED";
 
@@ -123,7 +124,7 @@ void imageCallbackWebcam(cv::VideoCapture cap)
 		}
 	}
 
-	cv::imshow("view", frame);
+	cv::imshow("view", frameWebcam);
 	cv::waitKey(30);
 }
 
@@ -145,7 +146,7 @@ int main(int argc, char **argv)
 	std::cout << "Object name: ";
 	std::cin >> objectName;
 	std::cout << "Save data [Y=1/N=0]?: ";
-std:cin >> saveData;
+    std:cin >> saveData;
 	std::cout << "Webcam [0] or bebop camera [1]?: ";
 	std::cin >> cameraType;
 
@@ -172,7 +173,8 @@ std:cin >> saveData;
 	}
 
 	image_transport::Publisher pub = it.advertise("/image_processed", 1);	// maybe this needs to be global
-	sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frame).toImageMsg();
+
+	sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frameWebcam).toImageMsg();
 
 
 
@@ -181,10 +183,18 @@ std:cin >> saveData;
 
 	while (nh.ok())
 	{
-		if (cameraType == false)
+		if (cameraType == false)  // Webcam
 		{
 			imageCallbackWebcam(cap);
-			msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frame).toImageMsg();
+			msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frameWebcam).toImageMsg();
+		}
+		else if(cameraType == true)  // Bebop
+		{
+			msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frameBebop).toImageMsg();
+		}
+		else
+		{
+			std::cout << "Error, no video input selected or found" << std::endl;
 		}
 
 		pub.publish(msg);
