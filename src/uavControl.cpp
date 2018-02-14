@@ -32,7 +32,7 @@ int saveData = 0;
 cv::Mat frame;
 cv::Mat frameSaliency;
 
-void imageCallback(const sensor_msgs::ImageConstPtr& msg)
+void imageCallbackBebop(const sensor_msgs::ImageConstPtr& msg)
 {
 	try
 	{
@@ -66,7 +66,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 	}
 }
 
-void imageCallback(cv::VideoCapture cap)
+void imageCallbackWebcam(cv::VideoCapture cap)
 {
 	cv::Mat res;
 	cv::Mat hsv_image;	// added: processing background
@@ -136,7 +136,7 @@ std:cin >> saveData;
 
 	if (cameraType == true)
 	{
-		image_transport::Subscriber sub = it.subscribe("/bebop/image_raw", 1, imageCallback);
+		image_transport::Subscriber sub = it.subscribe("/bebop/image_raw", 1, imageCallbackBebop);
 
 		ros::spin();
 	}
@@ -161,7 +161,7 @@ std:cin >> saveData;
 	{
 		if (cameraType == false)
 		{
-			imageCallback(cap);
+			imageCallbackWebcam(cap);
 			msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frame).toImageMsg();
 		}
 
