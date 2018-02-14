@@ -40,6 +40,11 @@ void imageCallbackBebop(const sensor_msgs::ImageConstPtr& msg)
 		cv::Mat mask;	// added: processing background
 		cv::Mat res;	// added: processing background
 
+		Ptr<Saliency> saliencyAlgorithm;
+
+		Mat binaryMap;
+		Mat image;
+
 		frame = cv_bridge::toCvShare(msg, "bgr8")->image;
 
 		cv::cvtColor(frame, hsv_image, COLOR_BGR2HSV);	// added: processing background
@@ -47,8 +52,25 @@ void imageCallbackBebop(const sensor_msgs::ImageConstPtr& msg)
 		bitwise_and(frame, frame, res, mask);	// added: processing background
 		frame = res;
 
+		frame.copyTo( image );
+
+		String saliency_algorithm = "SPECTRAL_RESIDUAL";
+
+		if( saliency_algorithm.find( "SPECTRAL_RESIDUAL" ) == 0 )
+		{
+			Mat saliencyMap;
+			saliencyAlgorithm = StaticSaliencyFineGrained::create();
+			if( saliencyAlgorithm->computeSaliency( image, saliencyMap ) )
+			{
+				imshow( "Saliency Map", saliencyMap );
+				imshow( "Original Image", image );
+				waitKey( 50 );
+			}
+		}
+
 		cv::imshow("view", frame);
 		cv::waitKey(30);
+
 
 		if (saveData == 1)
 		{
