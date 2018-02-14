@@ -160,7 +160,6 @@ int main(int argc, char **argv)
 	if (cameraType == true)
 	{
 		image_transport::Subscriber sub = it.subscribe("/bebop/image_raw", 1, imageCallbackBebop);
-
 		ros::spin();
 	}
 	else
@@ -174,8 +173,9 @@ int main(int argc, char **argv)
 
 	image_transport::Publisher pub = it.advertise("/image_processed", 1);	// maybe this needs to be global
 
-
 	ros::Rate loop_rate(100);
+	ros::spinOnce();
+
 
 	while (nh.ok())
 	{
