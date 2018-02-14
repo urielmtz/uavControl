@@ -174,10 +174,6 @@ int main(int argc, char **argv)
 
 	image_transport::Publisher pub = it.advertise("/image_processed", 1);	// maybe this needs to be global
 
-	sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frameWebcam).toImageMsg();
-
-
-
 
 	ros::Rate loop_rate(100);
 
@@ -186,18 +182,19 @@ int main(int argc, char **argv)
 		if (cameraType == false)  // Webcam
 		{
 			imageCallbackWebcam(cap);
-			msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frameWebcam).toImageMsg();
+			sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frameWebcam).toImageMsg();
+			pub.publish(msg);
 		}
 		else if(cameraType == true)  // Bebop
 		{
-			msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frameBebop).toImageMsg();
+			sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frameBebop).toImageMsg();
+			pub.publish(msg);
 		}
 		else
 		{
 			std::cout << "Error, no video input selected or found" << std::endl;
 		}
 
-		pub.publish(msg);
 		ros::spinOnce();
 		loop_rate.sleep();
 	}
