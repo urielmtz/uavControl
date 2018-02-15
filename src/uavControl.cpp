@@ -32,6 +32,7 @@ int saveData = 0;
 cv::Mat frameBebop;
 cv::Mat frameWebcam;
 cv::Mat frameSaliency;
+int processImage = true;
 
 void imageCallbackBebop(const sensor_msgs::ImageConstPtr& msg)
 {
@@ -46,41 +47,46 @@ void imageCallbackBebop(const sensor_msgs::ImageConstPtr& msg)
 		Mat binaryMap;
 		Mat image;
 
-		frameBebop = cv_bridge::toCvShare(msg, "bgr8")->image;
-
-		cv::cvtColor(frameBebop, hsv_image, COLOR_BGR2HSV);	// added: processing background
-		cv::inRange(hsv_image, Scalar(0, 70, 50), Scalar(10, 255, 255), mask);	// added: processing background
-		bitwise_and(frameBebop, frameBebop, res, mask);	// added: processing background
-		frameBebop = res;
-
-		frameBebop.copyTo( image );
-
-		String saliency_algorithm = "SPECTRAL_RESIDUAL";
-
-		if( saliency_algorithm.find( "SPECTRAL_RESIDUAL" ) == 0 )
+		if( processImage == true )
 		{
-			Mat saliencyMap;
-			saliencyAlgorithm = StaticSaliencyFineGrained::create();
-			if( saliencyAlgorithm->computeSaliency( image, saliencyMap ) )
+			frameBebop = cv_bridge::toCvShare(msg, "bgr8")->image;
+
+			cv::cvtColor(frameBebop, hsv_image, COLOR_BGR2HSV);	// added: processing background
+			cv::inRange(hsv_image, Scalar(0, 70, 50), Scalar(10, 255, 255), mask);	// added: processing background
+			bitwise_and(frameBebop, frameBebop, res, mask);	// added: processing background
+			frameBebop = res;
+
+			frameBebop.copyTo(image);
+
+			String saliency_algorithm = "SPECTRAL_RESIDUAL";
+
+			if (saliency_algorithm.find("SPECTRAL_RESIDUAL") == 0)
 			{
-				imshow( "Bebop - Saliency Map", saliencyMap );
-				imshow( "Bebop - Original Image", image );
-				waitKey( 50 );
+				Mat saliencyMap;
+				saliencyAlgorithm = StaticSaliencyFineGrained::create();
+				if (saliencyAlgorithm->computeSaliency(image, saliencyMap))
+				{
+					imshow("Bebop - Saliency Map", saliencyMap);
+					imshow("Bebop - Original Image", image);
+					waitKey(50);
+				}
 			}
-		}
 
-		cv::imshow("Bebop - view", frameBebop);
-		cv::waitKey(30);
+			cv::imshow("Bebop - view", frameBebop);
+			cv::waitKey(30);
 
 
-		if (saveData == 1)
-		{
-			imageCounter++;
-			fileName.clear();
-			std::stringstream strCounter;
-			strCounter << imageCounter;
-			fileName = folderName + "/" + objectName + "_" + strCounter.str() + ".jpg";
-			cv::imwrite(fileName, frameBebop);
+			if (saveData == 1)
+			{
+				imageCounter++;
+				fileName.clear();
+				std::stringstream strCounter;
+				strCounter << imageCounter;
+				fileName = folderName + "/" + objectName + "_" + strCounter.str() + ".jpg";
+				cv::imwrite(fileName, frameBebop);
+			}
+
+			processImage = false;
 		}
 	}
 	catch (cv_bridge::Exception& e)
@@ -190,11 +196,20 @@ int main(int argc, char **argv)
 			imageCallbackWebcam(cap);
 			sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frameWebcam).toImageMsg();
 			pub.publish(msg);
+			ros::spinOnce();
+			loop_rate.sleep();
 		}
 		else if(cameraType == true)  // Bebop
 		{
-			sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frameBebop).toImageMsg();
-			pub.publish(msg);
+			if(processImage == false)
+			{
+				sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frameBebop).toImageMsg();
+				pub.publish(msg);
+				ros::spinOnce();
+				loop_rate.sleep();
+
+				processImage = true;
+			}
 		}
 		else
 		{
