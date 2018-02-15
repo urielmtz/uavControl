@@ -157,12 +157,18 @@ int main(int argc, char **argv)
 
 	cv::VideoCapture cap(0); // open the default camera
 
+	image_transport::Subscriber sub = it.subscribe("/bebop/image_raw", 1, imageCallbackBebop);
+	ros::spin();
+
+/*
 	if (cameraType == true)
 	{
 		image_transport::Subscriber sub = it.subscribe("/bebop/image_raw", 1, imageCallbackBebop);
 		ros::spin();
 	}
 	else
+*/
+	if( cameraType == false )
 	{
 		if (!cap.isOpened())  // check if we succeeded
 			return -1;
