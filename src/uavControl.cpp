@@ -32,7 +32,7 @@ int saveData = 0;
 cv::Mat frameBebop;
 cv::Mat frameWebcam;
 cv::Mat frameSaliency;
-int processImage = true;
+int processImage = false;
 
 void imageCallbackBebop(const sensor_msgs::ImageConstPtr& msg)
 {
