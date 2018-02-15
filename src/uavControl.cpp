@@ -183,7 +183,7 @@ int main(int argc, char **argv)
 	ros::spinOnce();
 
 
-	while (nh.ok())
+	while (ros::ok())
 	{
 		if (cameraType == false)  // Webcam
 		{
@@ -205,6 +205,6 @@ int main(int argc, char **argv)
 		loop_rate.sleep();
 	}
 
-	cv::destroyWindow("view");
+	//cv::destroyWindow("view");
 }
 
