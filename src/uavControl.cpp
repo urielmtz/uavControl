@@ -118,13 +118,13 @@ void imageCallbackWebcam(cv::VideoCapture cap)
 		saliencyAlgorithm = StaticSaliencyFineGrained::create();
 		if( saliencyAlgorithm->computeSaliency( image, saliencyMap ) )
 		{
-			imshow( "Saliency Map", saliencyMap );
-			imshow( "Original Image", image );
+			imshow( "Webcam - Saliency Map", saliencyMap );
+			imshow( "Webcam - Original Image", image );
 			waitKey( 50 );
 		}
 	}
 
-	cv::imshow("view", frameWebcam);
+	cv::imshow("Webcam - view", frameWebcam);
 	cv::waitKey(30);
 }
 
@@ -150,7 +150,7 @@ int main(int argc, char **argv)
 	std::cout << "Webcam [0] or bebop camera [1]?: ";
 	std::cin >> cameraType;
 
-	cv::namedWindow("view");
+	//cv::namedWindow("view");
 	cv::startWindowThread();
 
 	image_transport::ImageTransport it(nh);
