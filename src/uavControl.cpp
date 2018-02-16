@@ -32,7 +32,6 @@ int saveData = 0;
 cv::Mat frameBebop;
 cv::Mat frameWebcam;
 cv::Mat frameSaliency;
-int processImage = false;
 
 void imageCallbackBebop(const sensor_msgs::ImageConstPtr& msg)
 {
@@ -47,46 +46,41 @@ void imageCallbackBebop(const sensor_msgs::ImageConstPtr& msg)
 		Mat binaryMap;
 		Mat image;
 
-		if( processImage == true )
+		frameBebop = cv_bridge::toCvShare(msg, "bgr8")->image;
+
+		cv::cvtColor(frameBebop, hsv_image, COLOR_BGR2HSV);	// added: processing background
+		cv::inRange(hsv_image, Scalar(0, 70, 50), Scalar(10, 255, 255), mask);	// added: processing background
+		bitwise_and(frameBebop, frameBebop, res, mask);	// added: processing background
+		frameBebop = res;
+
+		frameBebop.copyTo(image);
+
+		String saliency_algorithm = "SPECTRAL_RESIDUAL";
+
+		if (saliency_algorithm.find("SPECTRAL_RESIDUAL") == 0)
 		{
-			frameBebop = cv_bridge::toCvShare(msg, "bgr8")->image;
-
-			cv::cvtColor(frameBebop, hsv_image, COLOR_BGR2HSV);	// added: processing background
-			cv::inRange(hsv_image, Scalar(0, 70, 50), Scalar(10, 255, 255), mask);	// added: processing background
-			bitwise_and(frameBebop, frameBebop, res, mask);	// added: processing background
-			frameBebop = res;
-
-			frameBebop.copyTo(image);
-
-			String saliency_algorithm = "SPECTRAL_RESIDUAL";
-
-			if (saliency_algorithm.find("SPECTRAL_RESIDUAL") == 0)
+			Mat saliencyMap;
+			saliencyAlgorithm = StaticSaliencyFineGrained::create();
+			if (saliencyAlgorithm->computeSaliency(image, saliencyMap))
 			{
-				Mat saliencyMap;
-				saliencyAlgorithm = StaticSaliencyFineGrained::create();
-				if (saliencyAlgorithm->computeSaliency(image, saliencyMap))
-				{
-					imshow("Bebop - Saliency Map", saliencyMap);
-					imshow("Bebop - Original Image", image);
-					waitKey(50);
-				}
+				imshow("Bebop - Saliency Map", saliencyMap);
+				imshow("Bebop - Original Image", image);
+				waitKey(50);
 			}
+		}
 
-			cv::imshow("Bebop - view", frameBebop);
-			cv::waitKey(30);
+		cv::imshow("Bebop - view", frameBebop);
+		cv::waitKey(30);
 
 
-			if (saveData == 1)
-			{
-				imageCounter++;
-				fileName.clear();
-				std::stringstream strCounter;
-				strCounter << imageCounter;
-				fileName = folderName + "/" + objectName + "_" + strCounter.str() + ".jpg";
-				cv::imwrite(fileName, frameBebop);
-			}
-
-			processImage = false;
+		if (saveData == 1)
+		{
+			imageCounter++;
+			fileName.clear();
+			std::stringstream strCounter;
+			strCounter << imageCounter;
+			fileName = folderName + "/" + objectName + "_" + strCounter.str() + ".jpg";
+			cv::imwrite(fileName, frameBebop);
 		}
 	}
 	catch (cv_bridge::Exception& e)
@@ -152,11 +146,10 @@ int main(int argc, char **argv)
 	std::cout << "Object name: ";
 	std::cin >> objectName;
 	std::cout << "Save data [Y=1/N=0]?: ";
-    std:cin >> saveData;
+    	std:cin >> saveData;
 	std::cout << "Webcam [0] or bebop camera [1]?: ";
 	std::cin >> cameraType;
 
-	//cv::namedWindow("view");
 	cv::startWindowThread();
 
 	image_transport::ImageTransport it(nh);
@@ -164,16 +157,8 @@ int main(int argc, char **argv)
 	cv::VideoCapture cap(0); // open the default camera
 
 	image_transport::Subscriber sub = it.subscribe("/bebop/image_raw", 1, imageCallbackBebop);
-	ros::spin();
 
-/*
-	if (cameraType == true)
-	{
-		image_transport::Subscriber sub = it.subscribe("/bebop/image_raw", 1, imageCallbackBebop);
-		ros::spin();
-	}
-	else
-*/
+
 	if( cameraType == false )
 	{
 		if (!cap.isOpened())  // check if we succeeded
@@ -196,20 +181,11 @@ int main(int argc, char **argv)
 			imageCallbackWebcam(cap);
 			sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frameWebcam).toImageMsg();
 			pub.publish(msg);
-			ros::spinOnce();
-			loop_rate.sleep();
 		}
 		else if(cameraType == true)  // Bebop
 		{
-			if(processImage == false)
-			{
-				sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frameBebop).toImageMsg();
-				pub.publish(msg);
-				ros::spinOnce();
-				loop_rate.sleep();
-
-				processImage = true;
-			}
+			sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frameBebop).toImageMsg();
+			pub.publish(msg);
 		}
 		else
 		{
@@ -219,7 +195,5 @@ int main(int argc, char **argv)
 		ros::spinOnce();
 		loop_rate.sleep();
 	}
-
-	//cv::destroyWindow("view");
 }
 
