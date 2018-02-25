@@ -2,17 +2,17 @@
 """
 Created on Mon Feb 12 14:48:22 2018
 
-@author: adrian
+@author: Uriel Martinez-Hernandez
 """
 
 import roslib
-#roslib.load_manifest('/home/adrian/catkin_ws/src/uavControl/package')
 import Image
 from PIL import Image                                                            
 import sys
 import rospy
 import cv2
 from std_msgs.msg import String
+from std_msgs.msg import Float32
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -37,11 +37,13 @@ np.random.seed(7)
 imHeight = 71
 imWidth = 128
 
-model = keras.models.load_model('/home/adrian/Documents/camera_data/models/model_segmented_12022018_0001.h5')
+model = keras.models.load_model('/home/adrian/Documents/camera_data/models/model_segmented_24022018_0001.h5')
 
 graph = tf.get_default_graph()
 
-namesList = ['cup', 'circle', 'box']
+namesList = ['box', 'circle', 'cup', 'pen','rectangle']  #[object 0, object 1, object 2, object 3, object 4]
+namesListPlot = ('box', 'circle', 'cup', 'pen','rectangle')  #[object 0, object 1, object 2, object 3, object 4]
+y_pos = np.arange(len(namesListPlot))
 
 x_test = np.zeros((1, imHeight, imWidth, 1))
 test_img = np.zeros((1,71,128,1))
@@ -49,6 +51,9 @@ test_img = np.zeros((1,71,128,1))
 y_test = np.zeros((len(x_test),));
 y_test = keras.utils.to_categorical(y_test, len(namesList));
 
+plt.ion()
+
+pub = rospy.Publisher('cnn_probability', Float32, queue_size=1)
 
 class image_converter:
 
@@ -64,18 +69,39 @@ class image_converter:
       with graph.as_default():
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         pil_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)      
-        #print(pil_image.shape)
         pil_image = cv2.resize(pil_image, (imWidth, imHeight))
-        #print(pil_image.shape)
         x_test[0,:,:,0] = np.array(pil_image, 'f')
-        #print(x_test.shape)
       
         test_img[0] = x_test[0]
-        #print(test_img.shape)
       
         output = model.predict(test_img, batch_size=1)
         print(output)
-        print(np.argmax(output, axis=1))
+        recognisedObject = np.argmax(output[0,:], axis=1)
+
+		if( recognisedObject == 0 ):
+            print("Object: box");
+        elif( recognisedObject == 1 ):
+            print("Object: circle");        
+        elif( recognisedObject == 2 ):
+            print("Object: cup");        
+        elif( recognisedObject == 3 ):
+            print("Object: pen");        
+        else:
+            print("Object: rectangle");
+
+
+        probabilitiesPlot = output[0,:];
+        maxProbabilityValue = np.max(output);
+
+        pub.publish(maxProbabilityValue);
+        
+
+        plt.clf()
+        plt.bar(y_pos, probabilitiesPlot, align='center', alpha=0.5)
+        plt.xticks(y_pos, namesListPlot)
+        plt.ylabel('probability')
+        plt.title('Active visual object recognition')
+        plt.pause(0.05);
 
     except CvBridgeError as e:
       print(e)
