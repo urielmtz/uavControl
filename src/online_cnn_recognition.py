@@ -3,6 +3,8 @@
 Created on Mon Feb 12 14:48:22 2018
 
 @author: Uriel Martinez-Hernandez
+
+Description: CNN classifier for active visual object exploration and recognition
 """
 
 import roslib
