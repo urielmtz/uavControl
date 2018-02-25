@@ -1,3 +1,12 @@
+/****************************************************
+* filename: uavControl
+* author(s): Uriel Martinez-Hernandez
+*            Adrian Rubio-Solis
+*
+* date: 12-02-2018
+*****************************************************/
+
+
 #include "opencv2/core/version.hpp"
 #include <ros/ros.h>
 #include <image_transport/image_transport.h>
@@ -19,6 +28,22 @@
 #include <stdio.h>
 #include <cstdio>
 
+#include "std_msgs/String.h"
+#include "std_msgs/Empty.h"
+#include "std_msgs/Float32.h"
+#include "geometry_msgs/Twist.h"
+#include "geometry_msgs/Vector3.h"
+#include <curses.h>
+#include <unistd.h>
+
+#include <sys/select.h>
+#include <termios.h>
+
+#include <algorithm>
+#include <math.h>
+
+
+
 using namespace std;
 using namespace cv;
 using namespace saliency;
@@ -32,6 +57,22 @@ int saveData = 0;
 cv::Mat frameBebop;
 cv::Mat frameWebcam;
 cv::Mat frameSaliency;
+
+
+int yCentre = 480 / 2;
+int xCentre = 856 / 2;
+double minimo, maximo;
+cv::Point min_loc, max_loc;
+bool isUavInTarget = true;
+
+float forwardSpeed = 0.1;
+float backwardSpeed = -0.1;
+float rotateLeft = -0.1;
+float rotateRight = 0.1;
+
+float maxProbability = 0.0;
+float probabilityThreshold = 0.9999;
+
 
 void imageCallbackBebop(const sensor_msgs::ImageConstPtr& msg)
 {
@@ -63,6 +104,14 @@ void imageCallbackBebop(const sensor_msgs::ImageConstPtr& msg)
 			saliencyAlgorithm = StaticSaliencyFineGrained::create();
 			if (saliencyAlgorithm->computeSaliency(image, saliencyMap))
 			{
+
+				if (isUavInTarget == true)
+				{
+					minMaxLoc(saliencyMap, &minimo, &maximo, &min_loc, &max_loc);
+					circle(saliencyMap, max_loc, 20, (0, 0, 255), -1);
+					isUavInTarget = false;
+				}
+
 				imshow("Bebop - Saliency Map", saliencyMap);
 				imshow("Bebop - Original Image", image);
 				waitKey(50);
@@ -118,6 +167,12 @@ void imageCallbackWebcam(cv::VideoCapture cap)
 		saliencyAlgorithm = StaticSaliencyFineGrained::create();
 		if( saliencyAlgorithm->computeSaliency( image, saliencyMap ) )
 		{
+			cv::Size s = saliencyMap.size();
+			int rows = saliencyMap.rows;   int cols = saliencyMap.cols;
+			rows = s.height;     cols = s.width;
+			minMaxLoc(saliencyMap, &minimo, &maximo, &min_loc, &max_loc);
+			circle(saliencyMap, max_loc, 20, (0, 0, 255), -1);
+
 			imshow( "Webcam - Saliency Map", saliencyMap );
 			imshow( "Webcam - Original Image", image );
 			waitKey( 50 );
@@ -128,11 +183,11 @@ void imageCallbackWebcam(cv::VideoCapture cap)
 	cv::waitKey(30);
 }
 
-
-void cbfunc()
+void cnnCallback(const std_msgs::Float32::ConstPtr& msg)
 {
-	printf("called");
+	maxProbability = msg->data;
 }
+
 
 
 
@@ -141,12 +196,16 @@ int main(int argc, char **argv)
 	ros::init(argc, argv, "uav_control");
 	ros::NodeHandle nh;
 
+	ros::Publisher takeoffCommand_pub = nh.advertise<std_msgs::Empty>("/bebop/takeoff", 1);
+	ros::Publisher landCommand_pub = nh.advertise<std_msgs::Empty>("/bebop/land", 1);
+	ros::Publisher velCommand_pub = nh.advertise<geometry_msgs::Twist>("/bebop/cmd_vel", 1);
+
 	std::cout << "Folder name: ";
 	std::cin >> folderName;
 	std::cout << "Object name: ";
 	std::cin >> objectName;
 	std::cout << "Save data [Y=1/N=0]?: ";
-    	std:cin >> saveData;
+    std:cin >> saveData;
 	std::cout << "Webcam [0] or bebop camera [1]?: ";
 	std::cin >> cameraType;
 
@@ -157,7 +216,7 @@ int main(int argc, char **argv)
 	cv::VideoCapture cap(0); // open the default camera
 
 	image_transport::Subscriber sub = it.subscribe("/bebop/image_raw", 1, imageCallbackBebop);
-
+	ros::Subscriber subCNN = nh.subscribe<std_msgs::Float32>("/cnn_probability", 1, cnnCallback);
 
 	if( cameraType == false )
 	{
@@ -169,6 +228,9 @@ int main(int argc, char **argv)
 	}
 
 	image_transport::Publisher pub = it.advertise("/image_processed", 1);	// maybe this needs to be global
+
+	std_msgs::Empty msgLanding;
+	geometry_msgs::Twist velMsg;
 
 	ros::Rate loop_rate(100);
 	ros::spinOnce();
@@ -192,8 +254,58 @@ int main(int argc, char **argv)
 			std::cout << "Error, no video input selected or found" << std::endl;
 		}
 
+
+		if (isUavInTarget == false)
+		{
+			int pixelStep = 10;
+			int xTargetDifference = abs(max_loc.x - xCentre);
+			int movementSteps = int(xTargetDifference / pixelStep);
+			int maxNumberOfSteps = 10;
+
+
+			if (movementSteps > maxNumberOfSteps)
+				movementSteps = maxNumberOfSteps;
+
+			std::cout << "Maximum number of steps: " << movementSteps << std::endl;
+
+			for (int i = 0; i < movementSteps; i++)
+			{
+				velMsg.linear.x = 0;
+				velMsg.linear.y = 0;
+				velMsg.linear.z = 0;
+				velMsg.angular.z = 0;
+
+				if (max_loc.x < xCentre)
+				{// left
+					velMsg.linear.y = forwardSpeed;
+					std::cout << "Step to left: " << i + 1 << std::endl;
+				}
+				else if (max_loc.x > xCentre)
+				{// right
+					velMsg.linear.y = backwardSpeed;
+					std::cout << "Step to right: " << i + 1 << std::endl;
+				}
+
+				velCommand_pub.publish(velMsg);
+
+				usleep(500000);
+			}
+
+			isUavInTarget = true;
+		}
+
 		ros::spinOnce();
 		loop_rate.sleep();
+
+		std::cout << "Current probability: " << maxProbability << std::endl;
+		if (maxProbability > probabilityThreshold)
+		{
+			std::cout << "======= Probability threshold exceeded =======" << std::endl;
+			std::cout << "END OF ACTIVE EXPLORATION PROCESS" << std::endl;
+			break;
+		}
 	}
+
+	landCommand_pub.publish(msgLanding);
 }
 
