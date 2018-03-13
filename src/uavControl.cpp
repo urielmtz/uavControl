@@ -1,10 +1,17 @@
-/****************************************************
+/********************************************************************
 * filename: uavControl
-* author(s): Uriel Martinez-Hernandez
-*            Adrian Rubio-Solis
+* author(s): Uriel Martinez-Hernandez (1)
+*            Adrian Rubio-Solis (2)
+*
+* Institutions:
+* ---- 1 - Department of Electronic and Electrical Engineering
+*          University of Bath
+*
+* ---- 2 - Department of Automatic Control and Systems Engineering
+*          University of Sheffield
 *
 * date: 12-02-2018
-*****************************************************/
+********************************************************************/
 
 
 #include "opencv2/core/version.hpp"
@@ -74,6 +81,7 @@ float maxProbability = 0.0;
 float probabilityThreshold = 0.9999;
 
 
+/* Callback that reads input image from the Bebop camera */
 void imageCallbackBebop(const sensor_msgs::ImageConstPtr& msg)
 {
 	try
@@ -138,6 +146,7 @@ void imageCallbackBebop(const sensor_msgs::ImageConstPtr& msg)
 	}
 }
 
+/* Function that reads input images from the webcam */
 void imageCallbackWebcam(cv::VideoCapture cap)
 {
 	cv::Mat res;
@@ -190,33 +199,29 @@ void cnnCallback(const std_msgs::Float32::ConstPtr& msg)
 
 
 
-
+/* Main */
 int main(int argc, char **argv)
 {
 	ros::init(argc, argv, "uav_control");
 	ros::NodeHandle nh;
 
-	ros::Publisher takeoffCommand_pub = nh.advertise<std_msgs::Empty>("/bebop/takeoff", 1);
-	ros::Publisher landCommand_pub = nh.advertise<std_msgs::Empty>("/bebop/land", 1);
-	ros::Publisher velCommand_pub = nh.advertise<geometry_msgs::Twist>("/bebop/cmd_vel", 1);
-
-	std::cout << "Folder name: ";
-	std::cin >> folderName;
-	std::cout << "Object name: ";
-	std::cin >> objectName;
-	std::cout << "Save data [Y=1/N=0]?: ";
-    std:cin >> saveData;
-	std::cout << "Webcam [0] or bebop camera [1]?: ";
+	std::cout << "Select input device Webcam [0] or Bebop camera [1]?: ";
 	std::cin >> cameraType;
 
 	cv::startWindowThread();
+
+	ros::Publisher takeoffCommand_pub = nh.advertise<std_msgs::Empty>("/bebop/takeoff", 1);
+	ros::Publisher landCommand_pub = nh.advertise<std_msgs::Empty>("/bebop/land", 1);
+	ros::Publisher velCommand_pub = nh.advertise<geometry_msgs::Twist>("/bebop/cmd_vel", 1);
 
 	image_transport::ImageTransport it(nh);
 
 	cv::VideoCapture cap(0); // open the default camera
 
-	image_transport::Subscriber sub = it.subscribe("/bebop/image_raw", 1, imageCallbackBebop);
-	ros::Subscriber subCNN = nh.subscribe<std_msgs::Float32>("/cnn_probability", 1, cnnCallback);
+	image_transport::Subscriber sub = it.subscribe("/bebop/image_raw", 1, imageCallbackBebop); // received input image from Bebop robot
+	image_transport::Publisher pub = it.advertise("/image_processed", 1);	// sends segmented image to CNN in Python for classification
+
+	ros::Subscriber subCNN = nh.subscribe<std_msgs::Float32>("/cnn_probability", 1, cnnCallback); // receives output probability from CNN in Python
 
 	if( cameraType == false )
 	{
@@ -227,7 +232,6 @@ int main(int argc, char **argv)
 
 	}
 
-	image_transport::Publisher pub = it.advertise("/image_processed", 1);	// maybe this needs to be global
 
 	std_msgs::Empty msgLanding;
 	geometry_msgs::Twist velMsg;
@@ -255,6 +259,9 @@ int main(int argc, char **argv)
 		}
 
 
+		/*First approach to control the Bebop position during exploration of salient regions.
+		* This is a naive method based on calculation of small movements without position feedback.
+		*/
 		if (isUavInTarget == false)
 		{
 			int pixelStep = 10;
@@ -297,6 +304,9 @@ int main(int argc, char **argv)
 		ros::spinOnce();
 		loop_rate.sleep();
 
+		/* The object exploration task stops whenever the threshold is exceeded.
+		* Then, the Bebop robot is landed.
+		*/
 		std::cout << "Current probability: " << maxProbability << std::endl;
 		if (maxProbability > probabilityThreshold)
 		{
