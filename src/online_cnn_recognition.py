@@ -4,8 +4,13 @@ Created on Mon Feb 12 14:48:22 2018
 
 @author: Uriel Martinez-Hernandez
 
+Institution:
+------ 1 - Department of Electronic and Electrical Engineering
+           University of Bath
+
 Description: CNN classifier for active visual object exploration and recognition
 """
+
 
 import roslib
 import Image
@@ -31,7 +36,6 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.cm as cm
 import numpy.ma as ma
 import glob
-#import Image
 
 
 np.random.seed(7)
@@ -39,7 +43,8 @@ np.random.seed(7)
 imHeight = 71
 imWidth = 128
 
-model = keras.models.load_model('/home/adrian/Documents/camera_data/models/model_segmented_24022018_0001.h5')
+# Load the pre-trained model from trained_models folder
+model = keras.models.load_model('trained_models/model_segmented_24022018_0001.h5')
 
 graph = tf.get_default_graph()
 
@@ -95,7 +100,7 @@ class image_converter:
         probabilitiesPlot = output[0,:];
         maxProbabilityValue = np.max(output);
 
-        pub.publish(maxProbabilityValue);
+        pub.publish(maxProbabilityValue); # Publishes the output probability
         
 
         plt.clf()
